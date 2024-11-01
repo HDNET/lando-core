@@ -281,10 +281,9 @@ module.exports = async (app, lando) => {
       }
 
       // Get list of services that *should* have certs for SSL
-      const sslReady = _(_.get(app, 'config.services', []))
-        .map((data, name) => _.merge({}, data, {name}))
-        .filter(data => data.ssl)
-        .map(data => data.name)
+      const sslReady = _(app.info)
+        .filter(data => data?.hasCerts)
+        .map(data => data.service)
         .value();
 
       // Make sure we augment ssl ready if we have served by candidates
