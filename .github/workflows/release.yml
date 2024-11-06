@@ -6,214 +6,55 @@ on:
       - created
 
 jobs:
-  package:
-    uses: ./.github/workflows/pkg-binary.yml
-    strategy:
-      fail-fast: false
-      matrix:
-        arch:
-          - x64
-          - arm64
-        os:
-          - linux
-          - macos
-          - win
-        fatcore:
-          - false
-          - true
-    with:
-      arch: ${{ matrix.arch }}
-      edge: ${{ github.event.release.prerelease }}
-      fatcore: ${{ matrix.fatcore }}
-      filename: lando-${{ matrix.os }}-${{ matrix.arch }}-${{ github.ref_name }}${{ matrix.fatcore == false && '-slim' || '' }}
-      node-version: "20"
-      os: ${{ matrix.os }}
-      version: ${{ github.event.release.tag_name }}
-
-  sign:
-    uses: ./.github/workflows/sign-binary.yml
-    needs:
-      - package
-    strategy:
-      fail-fast: false
-      matrix:
-        file:
-          - lando-linux-arm64-${{ github.ref_name }}
-          - lando-macos-arm64-${{ github.ref_name }}
-          - lando-win-arm64-${{ github.ref_name }}
-
-          - lando-linux-x64-${{ github.ref_name }}
-          - lando-macos-x64-${{ github.ref_name }}
-          - lando-win-x64-${{ github.ref_name }}
-
-          - lando-linux-arm64-${{ github.ref_name }}-slim
-          - lando-macos-arm64-${{ github.ref_name }}-slim
-          - lando-win-arm64-${{ github.ref_name }}-slim
-
-          - lando-linux-x64-${{ github.ref_name }}-slim
-          - lando-macos-x64-${{ github.ref_name }}-slim
-          - lando-win-x64-${{ github.ref_name }}-slim
-    with:
-      download-pattern: packaged-lando-*
-      file: ${{ matrix.file }}
-    secrets:
-      apple-notary-user: ${{ secrets.APPLE_NOTARY_USER }}
-      apple-notary-password: ${{ secrets.APPLE_NOTARY_PASSWORD }}
-      certificate-data: ${{ contains(matrix.file, 'macos') && secrets.APPLE_CERT_DATA || secrets.KEYLOCKER_CLIENT_CERT }}
-      certificate-password: ${{ contains(matrix.file, 'macos') && secrets.APPLE_CERT_PASSWORD || secrets.KEYLOCKER_CLIENT_CERT_PASSWORD }}
-      keylocker-api-key: ${{ secrets.KEYLOCKER_API_KEY }}
-      keylocker-cert-sha1-hash: ${{ secrets.KEYLOCKER_CERT_SHA1_HASH }}
-      keylocker-keypair-alias: ${{ secrets.KEYLOCKER_KEYPAIR_ALIAS }}
-
-  build-release-binary-alias:
-    uses: ./.github/workflows/release-rename-binary.yml
-    needs:
-      - sign
-    strategy:
-      fail-fast: false
-      matrix:
-        arch:
-          - x64
-          - arm64
-        os:
-          - linux
-          - macos
-          - win
-        type:
-          - -slim
-          -
-        alias: ${{ github.event.release.prerelease == true && fromJson('["edge"]') || fromJson('["stable", "edge"]') }}
-
-    with:
-      source: lando-${{ matrix.os }}-${{ matrix.arch }}-${{ github.ref_name }}${{ matrix.type }}
-      destination: lando-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.alias }}${{ matrix.type }}
-      download-pattern: signed-lando-*
-  build-release-binary-tag:
-    uses: ./.github/workflows/release-rename-binary.yml
-    needs:
-      - sign
-    strategy:
-      fail-fast: false
-      matrix:
-        arch:
-          - x64
-          - arm64
-        os:
-          - linux
-          - macos
-          - win
-        type:
-          - -slim
-          -
-    with:
-      source: lando-${{ matrix.os }}-${{ matrix.arch }}-${{ github.ref_name }}${{ matrix.type }}
-      destination: lando-${{ matrix.os }}-${{ matrix.arch }}-${{ github.ref_name }}${{ matrix.type }}
-      download-pattern: signed-lando-*
-
-  checksum:
-    uses: ./.github/workflows/generate-checksums.yml
-    needs:
-      - build-release-binary-alias
-      - build-release-binary-tag
-    with:
-      download-pattern: release-*-${{ github.ref_name }}*
-      flatten: true
-      show: true
-      upload-name: release-checksums-${{ github.ref_name }}
-  checksum-s3-aliases:
-    uses: ./.github/workflows/generate-checksums.yml
-    strategy:
-      fail-fast: false
-      matrix:
-        alias:
-          - edge
-          - ${{ github.event.release.prerelease == false && 'stable' || 'prerelease' }}
-          - ${{ github.ref_name }}
-    needs:
-      - build-release-binary-alias
-      - build-release-binary-tag
-    with:
-      download-pattern: release-*-${{ github.ref_name }}*
-      output: sha256sum-${{ matrix.alias }}.txt
-      flatten: true
-      show: true
-      upload-name: release-checksums${{ matrix.alias }}
-
-  deploy-releases-s3:
-    uses: ./.github/workflows/deploy-s3.yml
-    needs:
-      - checksum
-      - checksum-s3-aliases
-    with:
-      download-pattern: release-*
-    secrets:
-      aws-secret-access-key: ${{ secrets.S3_SECRET_ACCESS_KEY }}
-      aws-access-key-id: ${{ secrets.S3_ACCESS_KEY_ID }}
-      aws-region: us-east-1
-  deploy-releases-artifacts:
-    uses: ./.github/workflows/deploy-artifacts.yml
-    needs:
-      - checksum
-    with:
-      download-pattern: release-*
-  deploy-releases-releases:
-    uses: ./.github/workflows/deploy-releases.yml
-    needs:
-      - checksum
-    with:
-      download-pattern: release-*-${{ github.ref_name }}*
-  deploy-npm:
-    uses: ./.github/workflows/deploy-npm.yml
-    needs:
-      - checksum
-    secrets:
-      github-token: ${{ secrets.RTFM47_COAXIUM_INJECTOR }}
-      npm-token: ${{ secrets.NPM_DEPLOY_TOKEN }}
-  deploy-legacy-notifications:
-    runs-on: ubuntu-24.04
-    needs:
-      - checksum
+  bump-and-npm:
+    runs-on: ${{ matrix.os }}
     env:
       TERM: xterm
+    strategy:
+      matrix:
+        os:
+          - ubuntu-24.04
+        node-version:
+          - '20'
     steps:
-      - name: Push release to lando/lando
-        uses: softprops/action-gh-release@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Install node ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
         with:
-          repository: lando/lando
-          name: ${{ github.event.release.tag_name }}
-          draft: ${{ github.event.release.draft }}
-          prerelease: ${{ github.event.release.prerelease }}
-          tag_name: ${{ github.event.release.tag_name }}
-          token: ${{ secrets.RTFM47_COAXIUM_INJECTOR }}
-          body: |
-            **Starting with v3.21.0-beta.18, Lando is no longer distributed via package installers in here in this releases page!**
-
-            To install Lando please visit the [official install docs](https://docs.lando.dev/install).
-
-            ## Changelogs
-
-            Lando now runs as a distributed plugin-based ecosystem so you will want to check the releases/changelogs in
-            the various [plugins](https://docs.lando.dev/plugins.html) for relevant notes.
-
-            [Click Here](https://github.com/lando/core/releases/tag/${{ github.event.release.tag_name }}) to check out the notes for `@lando/core@${{ github.event.release.tag_name }}`.
-
-            ## Notes
-
-            * We will continue to push releases here for backwards compatibility, posterity, etc
-            * [Extended release notes](https://lando.dev/blog/2024/01/16/v321-extended.html)
-
-      - name: Push release to lando/cli
-        uses: softprops/action-gh-release@v2
+          node-version: ${{ matrix.node-version }}
+          registry-url: https://registry.npmjs.org
+          cache: npm
+      - name: Install dependencies
+        run: npm clean-install --prefer-offline --frozen-lockfile
+      - name: Lint code
+        run: npm run lint
+      - name: Run unit tests
+        run: npm run test:unit
+      - name: Prepare Release
+        uses: lando/prepare-release-action@v3
         with:
-          repository: lando/legacy-cli
-          name: ${{ github.event.release.tag_name }}
-          draft: ${{ github.event.release.draft }}
-          prerelease: ${{ github.event.release.prerelease }}
-          tag_name: ${{ github.event.release.tag_name }}
-          token: ${{ secrets.RTFM47_COAXIUM_INJECTOR }}
-          body: |
-            **Starting with v3.23.0, Lando CLI binaries are no longer distributed here in these releases!**
+          lando-plugin: true
+          sync: false
+      - name: Publish to npm
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          PACKAGE=$(node -p "require('./package.json').name")
 
-            They are now available in the `@lando/core` [releases page](https://github.com/lando/core/releases) including [this ${{ github.event.release.tag_name }} release](https://github.com/lando/core/releases/tag/${{ github.event.release.tag_name }}).
+          if [ "${{ github.event.release.prerelease }}" ==  "false" ]; then
+            npm publish --access public --dry-run
+            npm publish --access public
+            npm dist-tag add "$PACKAGE@$VERSION" edge
 
-            All that said we don't recommned you use these binaries directly. Instead, to install Lando please visit the [official install docs](https://docs.lando.dev/install).
+            echo "::notice title=Published $VERSION to $PACKAGE::This is a stable release published to the default 'latest' npm tag"
+            echo "::notice title=Updated latest tag to $VERSION::The stable tag now points to $VERSION"
+            echo "::notice title=Updated edge tag to $VERSION::The edge tag now points to $VERSION"
+          else
+            npm publish --access public --tag edge --dry-run
+            npm publish --access public --tag edge
+
+            echo "::notice title=Published $VERSION to $PACKAGE::This is a prerelease published to the 'edge' npm tag"
+            echo "::notice title=Updated edge tag to $VERSION::The edge tag now points to $VERSION"
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_DEPLOY_TOKEN }}

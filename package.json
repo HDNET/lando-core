@@ -1,12 +1,12 @@
 {
-  "name": "@lando/core",
-  "description": "The libraries that power all of Lando.",
-  "version": "3.23.26",
-  "author": "Mike Pirog @pirog",
+  "name": "@florianpat/lando-core",
+  "description": "The libraries that power all of Lando. Fork by flo for compose integration",
+  "version": "3.23.27-5florianPat.4",
+  "author": "Florian Patruck @florianPat",
   "license": "GPL-3.0",
-  "repository": "lando/core",
-  "bugs": "https://github.com/lando/core/issues/new/choose",
-  "homepage": "https://github.com/lando/core",
+  "repository": "florianPat/lando-core",
+  "bugs": "https://github.com/florianPat/lando-core/issues/new/choose",
+  "homepage": "https://github.com/florianPat/lando-core",
   "keywords": [
     "lando",
     "lando-plugin"

@@ -1,10 +1,7 @@
 name: Create Dev Releases
 
 on:
-  push:
-    branches:
-      - main
-      - 'preview-**'
+  workflow_call:
 
 jobs:
   package:
