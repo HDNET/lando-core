@@ -137,6 +137,23 @@ module.exports = async (app, lando) => {
   // Add localhost info to our containers if they are up
   app.events.on('post-init-engine', async () => await require('./hooks/app-find-localhosts')(app, lando));
 
+  // Set LANDO_DOCKER_DATA_ROOT from docker info
+  // @NOTE: post-init-engine is skipped when noEngine is true (eg lando setup) so we dont
+  // try to hit docker when its not installed yet. app-find-localhosts above calls engine.list
+  // which goes through daemon.up() so docker is guaranteed running by this point.
+  app.events.on('post-init-engine', async () => {
+    try {
+      const info = await lando.engine.docker.info();
+      if (!info?.DockerRootDir) {
+        throw new Error();
+      }
+
+      app.env.LANDO_DOCKER_DATA_ROOT = info.DockerRootDir;
+    } catch (e) {
+      app.log.error('could not get docker info for data root');
+    }
+  });
+
   // override default tooling commands if needed
   app.events.on('ready', 1, async () => await require('./hooks/app-override-tooling-defaults')(app, lando));
 
