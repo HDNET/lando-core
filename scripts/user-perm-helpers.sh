@@ -6,16 +6,6 @@
 # Set the module
 LANDO_MODULE="userperms"
 
-# Adding user if needed
-add_user() {
-  local USER=$1
-  local GROUP=$2
-  local WEBROOT_UID=$3
-  local WEBROOT_GID=$4
-  if ! getent group | cut -d: -f1 | grep "$GROUP" > /dev/null 2>&1; then addgroup -g "$WEBROOT_GID" "$GROUP" 2>/dev/null; fi
-  if ! id -u "$USER" > /dev/null 2>&1; then adduser -H -D -G "$GROUP" -u "$WEBROOT_UID" "$USER" "$GROUP" 2>/dev/null; fi
-}
-
 # Verify user
 verify_user() {
   local USER=$1
@@ -38,30 +28,44 @@ reset_user() {
   local GROUP=$2
   local HOST_UID=$3
   local HOST_GID=$4
-  local DISTRO=$5
-  local HOST_GROUP=$GROUP
-  if getent group "$HOST_GID" 1>/dev/null 2>/dev/null; then
-    HOST_GROUP=$(getent group "$HOST_GID" | cut -d: -f1)
-  fi
-  if [ "$DISTRO" = "alpine" ]; then
-    deluser "$USER" 2>/dev/null
-    addgroup -g "$HOST_GID" "$GROUP" 2>/dev/null | addgroup "$GROUP" 2>/dev/null
-    addgroup -g "$HOST_GID" "$HOST_GROUP" 2>/dev/null
-    adduser -u "$HOST_UID" -G "$HOST_GROUP" -h /var/www -D "$USER" 2>/dev/null
-    adduser "$USER" "$GROUP" 2>/dev/null
+
+  if getent group "$GROUP" 1>/dev/null 2>/dev/null; then
+    local CURRENT_GID=$(getent group "$GROUP" | cut -d: -f3)
+    if [ "$CURRENT_GID" != "$HOST_GID" ]; then
+      if ! groupmod -o -g "$HOST_GID" "$GROUP"; then
+        lando_warn "groupmod failed to set $GROUP to GID $HOST_GID"
+      fi
+    fi
   else
-    if [ "$(id -u $USER)"  != "$HOST_UID" ]; then
-      usermod -o -u "$HOST_UID" "$USER" 2>/dev/null
+    if ! groupadd -o -g "$HOST_GID" "$GROUP"; then
+      lando_warn "groupadd failed to create $GROUP with GID $HOST_GID"
     fi
-    groupmod -o -g "$HOST_GID" "$GROUP" 2>/dev/null || true
-    if [ "$(id -g $USER)"  != "$HOST_GID" ]; then
-      usermod -g "$HOST_GID" "$USER" 2>/dev/null || true
+  fi
+
+  if id -u "$USER" 1>/dev/null 2>/dev/null; then
+    if [ "$(id -u "$USER")" != "$HOST_UID" ]; then
+      if ! usermod -o -u "$HOST_UID" "$USER"; then
+        lando_warn "usermod failed to set $USER to UID $HOST_UID"
+      fi
     fi
-  fi;
-  # If this mapping is incorrect lets abort here
-  if [ "$(id -u $USER)" != "$HOST_UID" ]; then
-    lando_warn "Looks like host/container user mapping was not possible! aborting..."
-    exit 0
+    if [ "$(id -g "$USER")" != "$HOST_GID" ]; then
+      if ! usermod -g "$HOST_GID" "$USER"; then
+        lando_warn "usermod failed to set $USER to GID $HOST_GID"
+      fi
+    fi
+  else
+    if ! useradd -o -m -u "$HOST_UID" -g "$HOST_GID" "$USER"; then
+      lando_warn "useradd failed to create $USER with UID $HOST_UID"
+    fi
+  fi
+
+  if [ "$(id -u "$USER" 2>/dev/null)" != "$HOST_UID" ]; then
+    lando_warn "Could not map $USER to UID $HOST_UID, aborting..."
+    exit 1
+  fi
+  if [ "$(id -g "$USER" 2>/dev/null)" != "$HOST_GID" ]; then
+    lando_warn "Could not map $USER to GID $HOST_GID, aborting..."
+    exit 1
   fi
 }
 
@@ -74,28 +78,41 @@ perm_sweep() {
   local USER_HOME=$3
   local OTHER_DIR=$4
 
+  chmod 755 /var/www
+
   # Do other dirs first if we have them
   if [ ! -z "$OTHER_DIR" ]; then
-    chown -R $USER:$GROUP $OTHER_DIR > /tmp/perms.out 2> /tmp/perms.err || true
+    nohup chown -R $USER:$GROUP $OTHER_DIR >> /tmp/perms.out 2>> /tmp/perms.err && lando_info "chowned $OTHER_DIR" &
+  fi
+
+  # Build a list of bind-mount paths under /var/www to exclude from the sweep.
+  # LANDO_DOCKER_DATA_ROOT is set from dockerode's docker info and contains the Docker storage root.
+  # Mounts with sources under that path are Docker-managed (volumes, containers, etc.) and should be chowned.
+  # Everything else mounted under /var/www is a host bind mount and should be skipped.
+  PRUNE_ARGS=""
+  if [ -f /proc/self/mountinfo ] && [ -n "$LANDO_DOCKER_DATA_ROOT" ]; then
+    for mnt in $(awk -v root="$LANDO_DOCKER_DATA_ROOT" '$5 ~ "^/var/www/.+" && $4 !~ root {print $5}' /proc/self/mountinfo); do
+      PRUNE_ARGS="$PRUNE_ARGS -path $mnt -prune -o"
+    done
   fi
 
   # Do permission sweep and wait for completion
-  chown -R $USER:$GROUP /app > /tmp/perms.out 2> /tmp/perms.err || true
-  lando_info "chowned /app"
-  chown -R $USER:$GROUP /tmp > /tmp/perms.out 2> /tmp/perms.err || true
-  lando_info "chowned /tmp"
-  [ -d /user ] && chown -R $USER:$GROUP /user > /tmp/perms.out 2> /tmp/perms.err || true
-  lando_info "chowned /user"
-  chown -R $USER:$GROUP /var/www > /tmp/perms.out 2> /tmp/perms.err || true
-  lando_info "chowned /var/www"
-  chmod 755 /var/www
+  nohup find /var/www $PRUNE_ARGS -not -user $USER -exec chown $USER:$GROUP {} + >> /dev/null 2>> /tmp/perms.err && lando_info "chowned /var/www" &
+  nohup find /usr/local $PRUNE_ARGS -not -user $USER -exec chown $USER:$GROUP {} + >> /tmp/perms.out 2>> /tmp/perms.err && lando_info "chowned /usr/local" &
+  nohup chmod -R 777 /tmp > /tmp/perms.out 2> /tmp/perms.err && lando_info "chowned /tmp" &
 
-  chown -R $USER:$GROUP /usr/local > /tmp/perms.out 2> /tmp/perms.err || true
-  lando_info "chowned /usr/local"
+  if [ -d "$USER_HOME" ]; then
+    nohup find "$USER_HOME" $PRUNE_ARGS -not -user $USER -exec chown $USER:$GROUP {} + >> /tmp/perms.out 2>> /tmp/perms.err && lando_info "chowned $USER_HOME" &
+  fi
+  if [ -d /lando/keys ]; then
+    nohup chown -R $USER:$GROUP /lando/keys >> /tmp/perms.out 2>> /tmp/perms.err && lando_info "chowned /lando/keys" &
+  fi
 
-  # Make sure we chown the $USER home directory
-  [ -d "$USER_HOME" ] && chown -R $USER:$GROUP "$USER_HOME" > /tmp/perms.out 2> /tmp/perms.err || true
-  lando_info "chowned $USER_HOME"
-  [ -d /lando/keys ] && chown -R $USER:$GROUP /lando/keys > /tmp/perms.out 2> /tmp/perms.err || true
-  lando_info "chowned /lando"
+  wait
+  lando_info "perm sweep complete"
+
+  if [ -s /tmp/perms.err ]; then
+    lando_warn "Perm sweep errors occured! This may or not impact you (dangling symlinks or read-only filesystem errors are fine)"
+    lando_warn "$(cat /tmp/perms.err)"
+  fi
 }
