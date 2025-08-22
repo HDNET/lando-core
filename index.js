@@ -102,6 +102,8 @@ module.exports = async lando => {
   // move v3 scripts directories as needed
   lando.events.on('pre-engine-start', 0, async () => await require('./hooks/lando-copy-v3-scripts')(lando));
 
+  lando.events.on('post-bootstrap-config', async () => await require('./hooks/plugin-auth-from-npmrc')(lando));
+
   // return some default things
   return _.merge({}, defaults, uc(), {config: {
     appEnv: {
