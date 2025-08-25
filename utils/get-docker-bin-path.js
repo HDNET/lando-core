@@ -6,6 +6,7 @@ const path = require('path');
 module.exports = (platform = process.landoPlatform ?? process.platform) => {
   switch (platform) {
     case 'linux':
+    case 'wsl':
       return '/usr/share/lando/bin';
     case 'win32':
       const programFiles = process.env.ProgramW6432 || process.env.ProgramFiles;
@@ -17,8 +18,6 @@ module.exports = (platform = process.landoPlatform ?? process.platform) => {
       } else {
          return path.win32.join(programFiles + '\\Docker\\Docker\\resources\\bin');
       }
-    case 'wsl':
-      return '/mnt/wsl/docker-desktop/cli-tools/usr/bin';
     default:
       return '/usr/bin';
   }
