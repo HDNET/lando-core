@@ -116,7 +116,7 @@ module.exports = {
 
       // Handle volumes
       const volumes = [
-        `${userConfRoot}:/lando:cached`,
+        `${userConfRoot}/keys:/lando/keys:cached`,
         `${globalScriptsDir}:/helpers`,
         `${entrypointScript}:/lando-entrypoint.sh`,
       ];
@@ -147,7 +147,11 @@ module.exports = {
         volumes.push(`${addCertsScript}:/scripts/000-add-cert`);
         volumes.push(`${certpath}:/certs/cert.crt`);
         volumes.push(`${keypath}:/certs/cert.key`);
+        volumes.push(`${certpath}:/lando/certs/${certname}`);
+        volumes.push(`${keypath}:/lando/certs/${keyname}`);
       }
+      volumes.push(`${userConfRoot}/certs/LandoCA.crt:/lando/certs/LandoCA.crt`);
+      volumes.push(`${userConfRoot}/certs/LandoCA.key:/lando/certs/LandoCA.key`);
 
       // Add in some more dirz if it makes sense
       if (home && _.get(_app, '_config.homeMount', true)) volumes.push(`${home}:/user:cached`);
