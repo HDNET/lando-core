@@ -3,7 +3,7 @@
 # retry settings
 attempt=0
 delay=1
-retry=16
+retry=32
 
 until [ "$attempt" -ge "$retry" ]
 do

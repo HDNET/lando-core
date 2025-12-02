@@ -10,7 +10,7 @@ module.exports = (config, composeServiceIds, app) => _(config)
   // Filter out any services which are not defined in the docker compose services
   .filter(service => _.includes(composeServiceIds, service.name))
   // Build the config and ensure api is set to 3
-  .map(service => _.merge({}, service, {
+  .map(service => _.merge({}, {
     _app: app,
     app: app.name,
     home: app.config.home || app._config.home,
@@ -18,10 +18,14 @@ module.exports = (config, composeServiceIds, app) => _(config)
     root: app.root,
     type: '_lando-compose',
     userConfRoot: app._config.userConfRoot,
-    version: 'custom',
+    supportedIgnore: true,
     api: 3,
     entrypoint: null, // NOTE: Do not overwrite the entrypoint from docker compose. Or should we?
     data: null, // NOTE: Do not create the data volume
     dataHome: null, // NOTE: Do not create the dataHome volume
-  }))
+    ssl: true,
+    sslExpose: false,
+    meUser: 'root',
+    appMount: '/',
+  }, service))
   .value();
