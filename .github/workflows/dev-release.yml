@@ -29,41 +29,41 @@ jobs:
       os: ${{ matrix.os }}
       version: dev
 
-  sign:
-    permissions:
-      contents: read
-      id-token: write
-    uses: ./.github/workflows/sign-binary.yml
-    needs:
-      - package
-    strategy:
-      fail-fast: false
-      matrix:
-        file:
-          - lando-linux-arm64-${{ github.sha }}
-          - lando-macos-arm64-${{ github.sha }}
-          - lando-win-arm64-${{ github.sha }}
+  #sign:
+  #  permissions:
+  #    contents: read
+  #    id-token: write
+  #  uses: ./.github/workflows/sign-binary.yml
+  #  needs:
+  #    - package
+  #  strategy:
+  #    fail-fast: false
+  #    matrix:
+  #      file:
+  #        - lando-linux-arm64-${{ github.sha }}
+  #        - lando-macos-arm64-${{ github.sha }}
+  #        - lando-win-arm64-${{ github.sha }}
 
-          - lando-linux-x64-${{ github.sha }}
-          - lando-macos-x64-${{ github.sha }}
-          - lando-win-x64-${{ github.sha }}
+  #        - lando-linux-x64-${{ github.sha }}
+  #        - lando-macos-x64-${{ github.sha }}
+  #        - lando-win-x64-${{ github.sha }}
 
-    with:
-      download-pattern: packaged-lando-*
-      file: ${{ matrix.file }}
-    secrets:
-      apple-notary-user: ${{ secrets.APPLE_NOTARY_USER }}
-      apple-notary-password: ${{ secrets.APPLE_NOTARY_PASSWORD }}
-      azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
-      azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-      certificate-data: ${{ contains(matrix.file, 'macos') && secrets.APPLE_CERT_DATA || '' }}
-      certificate-password: ${{ contains(matrix.file, 'macos') && secrets.APPLE_CERT_PASSWORD || '' }}
+    #with:
+    #  download-pattern: packaged-lando-*
+    #  file: ${{ matrix.file }}
+    #secrets:
+    #  apple-notary-user: ${{ secrets.APPLE_NOTARY_USER }}
+    #  apple-notary-password: ${{ secrets.APPLE_NOTARY_PASSWORD }}
+    #  azure-client-id: ${{ secrets.AZURE_CLIENT_ID }}
+    #  azure-subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+    #  azure-tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+    #  certificate-data: ${{ contains(matrix.file, 'macos') && secrets.APPLE_CERT_DATA || '' }}
+    #  certificate-password: ${{ contains(matrix.file, 'macos') && secrets.APPLE_CERT_PASSWORD || '' }}
 
   build-release-binary-alias:
     uses: ./.github/workflows/release-rename-binary.yml
     needs:
-      - sign
+      - package
     strategy:
       fail-fast: false
       matrix:
@@ -80,11 +80,11 @@ jobs:
     with:
       source: lando-${{ matrix.os }}-${{ matrix.arch }}-${{ github.sha }}
       destination: lando-${{ matrix.os }}-${{ matrix.arch }}-${{ matrix.alias }}
-      download-pattern: signed-lando-*
+      download-pattern: packaged-lando-*
   build-release-binary-branch:
     uses: ./.github/workflows/release-rename-binary.yml
     needs:
-      - sign
+      - package
     strategy:
       fail-fast: false
       matrix:
@@ -99,7 +99,7 @@ jobs:
     with:
       source: lando-${{ matrix.os }}-${{ matrix.arch }}-${{ github.sha }}
       destination: lando-${{ matrix.os }}-${{ matrix.arch }}-${{ github.head_ref || github.ref_name }}
-      download-pattern: signed-lando-*
+      download-pattern: packaged-lando-*
 
   checksum:
     uses: ./.github/workflows/generate-checksums.yml
@@ -119,16 +119,16 @@ jobs:
       show: true
       upload-name: release-checksums-${{ matrix.alias }}
 
-  deploy-releases-s3:
-    uses: ./.github/workflows/deploy-s3.yml
-    needs:
-      - checksum
-    with:
-      download-pattern: release-*
-    secrets:
-      aws-secret-access-key: ${{ secrets.S3_SECRET_ACCESS_KEY }}
-      aws-access-key-id: ${{ secrets.S3_ACCESS_KEY_ID }}
-      aws-region: us-east-1
+  #deploy-releases-s3:
+  #  uses: ./.github/workflows/deploy-s3.yml
+  #  needs:
+  #    - checksum
+  #  with:
+  #    download-pattern: release-*
+  #  secrets:
+  #    aws-secret-access-key: ${{ secrets.S3_SECRET_ACCESS_KEY }}
+  #    aws-access-key-id: ${{ secrets.S3_ACCESS_KEY_ID }}
+  #    aws-region: us-east-1
   deploy-releases-artifacts:
     uses: ./.github/workflows/deploy-artifacts.yml
     needs:
