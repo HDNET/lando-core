@@ -66,7 +66,7 @@ module.exports = options => {
   // Set up the default engine config if needed
   config.engineConfig = getEngineConfig(config);
   // Strip all COMPOSE_ envvars
-  config.env = stripEnv('COMPOSE_');
+  // config.env = stripEnv('COMPOSE_');
   // Disable docker CLI_HINTS
   config.env.DOCKER_CLI_HINTS = false;
 
