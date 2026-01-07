@@ -2,6 +2,10 @@
 
 set -e
 
+if [ -f /tmp/lando-entrypoint-ran ]; then
+  rm /tmp/lando-entrypoint-ran
+fi
+
 # Get the lando logger
 . /helpers/log.sh
 
@@ -58,7 +62,7 @@ if [ -d "/scripts" ] && [ -z ${LANDO_NO_SCRIPTS+x} ]; then
 
   # Keep this for backwards compat and fallback opts
   chmod +x /scripts/* || true
-  find /scripts/ -type f -name "*.sh" -exec {} \;
+  find /scripts/ -type f \( -name "*.sh" -o ! -name "*.*" \) -exec {} \;
 fi;
 
 # Run any bash scripts that we've loaded into the mix for autorun unless we've
@@ -72,6 +76,8 @@ fi
 # Run the COMMAND
 # @TODO: We should def figure out whether we can get away with running everything through exec at some point
 lando_info "Lando handing off to: $@"
+
+touch /tmp/lando-entrypoint-ran
 
 # Try to DROP DOWN to another user if we can
 if [ ! -z ${LANDO_DROP_USER+x} ]; then

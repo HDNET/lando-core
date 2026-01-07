@@ -4,6 +4,7 @@ const _ = require('lodash');
 
 module.exports = (services, app, rootSteps = [], buildSteps= [], prestart = false) => {
   const getUser = require('../utils/get-user');
+  const getAppMount = require('../utils/get-app-mount');
   // compute stdid based on compose major version
   const cstdio = _.get(app, '_config.orchestratorMV', 2) ? 'inherit' : ['inherit', 'pipe', 'pipe'];
   // Start collecting them
@@ -29,6 +30,7 @@ module.exports = (services, app, rootSteps = [], buildSteps= [], prestart = fals
               mode: 'attach',
               cstdio,
               prestart,
+              workdir: getAppMount(service, app.info),
               user: (_.includes(rootSteps, section)) ? 'root' : getUser(service, app.info),
               services: [service],
             },
@@ -37,26 +39,8 @@ module.exports = (services, app, rootSteps = [], buildSteps= [], prestart = fals
       }
     });
   });
-  // Let's silent run user-perm stuff and add a "last" flag
+  // Let's add a "last" flag
   if (!_.isEmpty(build)) {
-    const permsweepers = _(build)
-      .map(command => ({id: command.id, services: _.get(command, 'opts.services', [])}))
-      .uniqBy('id')
-      .value();
-    _.forEach(permsweepers, ({id, services}) => {
-      build.unshift({
-        id,
-        cmd: '/helpers/user-perms.sh --silent',
-        compose: app.compose,
-        project: app.project,
-        opts: {
-          mode: 'attach',
-          prestart,
-          user: 'root',
-          services,
-        },
-      });
-    });
     // Denote the last step in the build if its happening before start
     const last = _.last(build);
     last.opts.last = prestart;

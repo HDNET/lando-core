@@ -190,7 +190,7 @@ const parseRoutes = (service, urls = [], sslReady, labels = {}) => {
     rule.middlewares.push({name: 'lando', key: 'headers.customrequestheaders.X-Lando', value: 'on'});
 
     // Add in any path stripping middleware we need it
-    if (rule.pathname.length > 1) {
+    if (rule.pathname.length > 1 && _.get(rule, 'stripPrefix', true)) {
       rule.middlewares.push({name: 'stripprefix', key: 'stripprefix.prefixes', value: rule.pathname});
     }
 
@@ -323,19 +323,17 @@ module.exports = async (app, lando) => {
       service.labels['traefik.enable'] = true;
       service.labels['traefik.docker.network'] = lando.config.proxyNet;
       service.environment.LANDO_PROXY_PASSTHRU = _.toString(lando.config.proxyPassThru);
-      const proxyVolume = `${lando.config.proxyName}_proxy_config`;
       return {
         services: _.set({}, service.name, {
           networks: {'lando_proxyedge': {}},
           labels: service.labels,
           environment: service.environment,
           volumes: [
-            `${proxyVolume}:/proxy_config`,
+            `${lando.config.proxyConfigDir}:/proxy_config`,
             `${lando.config.userConfRoot}/scripts/proxy-certs.sh:/scripts/100-proxy-certs`,
           ],
         }),
         networks: {'lando_proxyedge': {name: lando.config.proxyNet, external: true}},
-        volumes: _.set({}, proxyVolume, {external: true}),
       };
     })
 
