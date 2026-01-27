@@ -83,9 +83,10 @@ perm_sweep() {
   # Do permission sweep and wait for completion
   chown -R $USER:$GROUP /app > /tmp/perms.out 2> /tmp/perms.err || true
   lando_info "chowned /app"
-  chown -R $USER:$GROUP /tmp > /tmp/perms.out 2> /tmp/perms.err || true
+  #chown -R $USER:$GROUP /tmp > /tmp/perms.out 2> /tmp/perms.err || true
+  chmod -R 777 /tmp
   lando_info "chowned /tmp"
-  [ -d /user ] && chown -R $USER:$GROUP /user > /tmp/perms.out 2> /tmp/perms.err || true
+  [ -d /user ] && chown -R $USER:$GROUP /user/.ssh > /tmp/perms.out 2> /tmp/perms.err || true
   lando_info "chowned /user"
   chown -R $USER:$GROUP /var/www > /tmp/perms.out 2> /tmp/perms.err || true
   lando_info "chowned /var/www"
