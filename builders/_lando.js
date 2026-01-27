@@ -139,9 +139,9 @@ module.exports = {
         volumes.push(`${path.join(userConfRoot, 'certs', keyname)}:/certs/cert.key`);
         volumes.push(`${path.join(userConfRoot, 'certs', certname)}:/lando/certs/${certname}`);
         volumes.push(`${path.join(userConfRoot, 'certs', keyname)}:/lando/certs/${keyname}`);
-        volumes.push(`${userConfRoot}/certs/LandoCA.crt:/lando/certs/LandoCA.crt`);
-        volumes.push(`${userConfRoot}/certs/LandoCA.key:/lando/certs/LandoCA.key`);
       }
+      volumes.push(`${userConfRoot}/certs/LandoCA.crt:/lando/certs/LandoCA.crt`);
+      volumes.push(`${userConfRoot}/certs/LandoCA.key:/lando/certs/LandoCA.key`);
 
       // Add in some more dirz if it makes sense
       if (home && _.get(_app, '_config.homeMount', true)) volumes.push(`${home}:/user:cached`);
