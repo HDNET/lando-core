@@ -81,11 +81,8 @@ perm_sweep() {
   fi
 
   # Do permission sweep and wait for completion
-  #chown -R $USER:$GROUP /tmp > /tmp/perms.out 2> /tmp/perms.err || true
   chmod -R 777 /tmp
   lando_info "chowned /tmp"
-  [ -d /user ] && chown -R $USER:$GROUP /user/.ssh > /tmp/perms.out 2> /tmp/perms.err || true
-  lando_info "chowned /user"
   chown -R $USER:$GROUP /var/www > /tmp/perms.out 2> /tmp/perms.err || true
   lando_info "chowned /var/www"
   chmod 755 /var/www
@@ -96,11 +93,6 @@ perm_sweep() {
   # Make sure we chown the $USER home directory
   [ -d "$USER_HOME" ] && chown -R $USER:$GROUP "$USER_HOME" > /tmp/perms.out 2> /tmp/perms.err || true
   lando_info "chowned $USER_HOME"
-  [ -d /lando/keys ] && chown -R $USER:$GROUP /lando/keys > /tmp/perms.out 2> /tmp/perms.err || true
-  lando_info "chowned /lando"
-
-  chown -R $USER:$GROUP /app > /tmp/perms.out 2> /tmp/perms.err || true
-  lando_info "chowned /app"
 
   lando_error $(cat /tmp/perms.err)
 }
