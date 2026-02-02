@@ -81,8 +81,6 @@ perm_sweep() {
   fi
 
   # Do permission sweep and wait for completion
-  chown -R $USER:$GROUP /app > /tmp/perms.out 2> /tmp/perms.err || true
-  lando_info "chowned /app"
   #chown -R $USER:$GROUP /tmp > /tmp/perms.out 2> /tmp/perms.err || true
   chmod -R 777 /tmp
   lando_info "chowned /tmp"
@@ -100,4 +98,9 @@ perm_sweep() {
   lando_info "chowned $USER_HOME"
   [ -d /lando/keys ] && chown -R $USER:$GROUP /lando/keys > /tmp/perms.out 2> /tmp/perms.err || true
   lando_info "chowned /lando"
+
+  chown -R $USER:$GROUP /app > /tmp/perms.out 2> /tmp/perms.err || true
+  lando_info "chowned /app"
+
+  lando_error $(cat /tmp/perms.err)
 }
