@@ -21,11 +21,9 @@ module.exports = (config, composeServiceIds, app) => _(config)
     version: 'custom',
     userConfRoot: app._config.userConfRoot,
     api: 3,
-    entrypoint: null, // NOTE: Do not overwrite the entrypoint from docker compose. Or should we?
+    entrypoint: null, // NOTE: Do not overwrite the entrypoint from docker compose.
     data: null, // NOTE: Do not create the data volume
     dataHome: null, // NOTE: Do not create the dataHome volume
-    meUser: 'root',
-    appMount: '/',
     sslExpose: false,
   }, service))
   .value();

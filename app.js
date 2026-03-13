@@ -13,6 +13,15 @@ const getKeys = (keys = true) => {
 };
 
 module.exports = async (app, lando) => {
+  let dockerDataRoot = '';
+  try {
+    const info = await lando.engine.docker.info();
+    if (!info.DockerRootDir) throw new Error();
+    dockerDataRoot = info.DockerRootDir;
+  } catch (e) {
+    app.log.error('could not get docker info for data root');
+  }
+
   // Compose cache key
   app.composeCache = `${app.name}.compose.cache`;
   // recipe cache key
@@ -266,6 +275,7 @@ module.exports = async (app, lando) => {
       LANDO_APP_ROOT_BIND: app.root,
       LANDO_APP_COMMON_NAME: _.truncate(app.project, {length: 64}),
       LANDO_LOAD_KEYS: getKeys(_.get(app, 'config.keys')),
+      LANDO_DOCKER_DATA_ROOT: dockerDataRoot,
       BITNAMI_DEBUG: 'true',
     },
     labels: {

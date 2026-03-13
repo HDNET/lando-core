@@ -52,28 +52,6 @@ mkdir -p /var/www/.ssh
 mkdir -p /user/.ssh
 mkdir -p /app
 
-# Get the webroot user's home directory
-WEBROOT_HOME=$(getent passwd "$LANDO_WEBROOT_USER" | cut -d : -f 6)
-if [ -z "$WEBROOT_HOME" ]; then
-  WEBROOT_HOME="/var/www"
-fi
-
-lando_info "meUsers home directory: $WEBROOT_HOME"
-
-# Symlink the gitconfig
-if [ -f "/user/.gitconfig" ] && [ ! -f "$WEBROOT_HOME/.gitconfig" ]; then
-  mkdir -p "$WEBROOT_HOME"
-  ln -sf /user/.gitconfig "$WEBROOT_HOME/.gitconfig"
-  lando_info "Symlinked users .gitconfig."
-fi
-
-# Symlink the known_hosts
-if [ -f "/user/.ssh/known_hosts" ] && [ ! -f "$WEBROOT_HOME/.ssh/known_hosts" ]; then
-  mkdir -p "$WEBROOT_HOME/.ssh"
-  ln -sf /user/.ssh/known_hosts "$WEBROOT_HOME/.ssh/known_hosts"
-  lando_info "Symlinked users known_hosts"
-fi
-
 if [ ! -z ${LANDO_NO_USER_PERMS+x} ]; then
   lando_info "Skipping user perm sweep at because LANDO_NO_USER_PERMS is set"
   exit 0
@@ -94,19 +72,36 @@ lando_debug "LANDO_HOST_GID          : $LANDO_HOST_GID"
 lando_debug "========================================"
 lando_debug ""
 
-# Adding user if needed
-lando_info "Making sure correct user:group ($LANDO_WEBROOT_USER:$LANDO_WEBROOT_GROUP) exists..."
-add_user $LANDO_WEBROOT_USER $LANDO_WEBROOT_GROUP $LANDO_WEBROOT_UID $LANDO_WEBROOT_GID $FLAVOR "$LANDO_ADDUSER_EXTRAS"
-verify_user $LANDO_WEBROOT_USER $LANDO_WEBROOT_GROUP $FLAVOR
-
 # Correctly map users
 # Lets do this regardless of OS now
 lando_info "Remapping ownership to handle docker volume sharing..."
 lando_info "Resetting $LANDO_WEBROOT_USER:$LANDO_WEBROOT_GROUP from $LANDO_WEBROOT_UID:$LANDO_WEBROOT_GID to $LANDO_HOST_UID:$LANDO_HOST_GID"
 reset_user $LANDO_WEBROOT_USER $LANDO_WEBROOT_GROUP $LANDO_HOST_UID $LANDO_HOST_GID $FLAVOR $WEBROOT_HOME
 lando_info "$LANDO_WEBROOT_USER:$LANDO_WEBROOT_GROUP is now running as $(id $LANDO_WEBROOT_USER)!"
+verify_user $LANDO_WEBROOT_USER $LANDO_WEBROOT_GROUP $FLAVOR
+
+# Get the webroot user's home directory
+WEBROOT_HOME=$(getent passwd "$LANDO_WEBROOT_USER" | cut -d : -f 6)
+if [ -z "$WEBROOT_HOME" ]; then
+  WEBROOT_HOME="/var/www"
+fi
+lando_info "meUsers home directory: $WEBROOT_HOME"
 
 # Make sure we set the ownership of the mount and HOME when we start a service
 lando_info "And here. we. go."
 lando_info "Doing the permission sweep."
 perm_sweep $LANDO_WEBROOT_USER $(getent group "$LANDO_HOST_GID" | cut -d: -f1) $WEBROOT_HOME $LANDO_RESET_DIR
+
+# Symlink the gitconfig
+if [ -f "/user/.gitconfig" ] && [ ! -f "$WEBROOT_HOME/.gitconfig" ]; then
+  mkdir -p "$WEBROOT_HOME"
+  ln -sf /user/.gitconfig "$WEBROOT_HOME/.gitconfig"
+  lando_info "Symlinked users .gitconfig."
+fi
+
+# Symlink the known_hosts
+if [ -f "/user/.ssh/known_hosts" ] && [ ! -f "$WEBROOT_HOME/.ssh/known_hosts" ]; then
+  mkdir -p "$WEBROOT_HOME/.ssh"
+  ln -sf /user/.ssh/known_hosts "$WEBROOT_HOME/.ssh/known_hosts"
+  lando_info "Symlinked users known_hosts"
+fi
