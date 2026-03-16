@@ -87,11 +87,6 @@ if [ -z "$WEBROOT_HOME" ]; then
 fi
 lando_info "meUsers home directory: $WEBROOT_HOME"
 
-# Make sure we set the ownership of the mount and HOME when we start a service
-lando_info "And here. we. go."
-lando_info "Doing the permission sweep."
-perm_sweep $LANDO_WEBROOT_USER $(getent group "$LANDO_HOST_GID" | cut -d: -f1) $WEBROOT_HOME $LANDO_RESET_DIR
-
 # Symlink the gitconfig
 if [ -f "/user/.gitconfig" ] && [ ! -f "$WEBROOT_HOME/.gitconfig" ]; then
   mkdir -p "$WEBROOT_HOME"
@@ -105,3 +100,9 @@ if [ -f "/user/.ssh/known_hosts" ] && [ ! -f "$WEBROOT_HOME/.ssh/known_hosts" ];
   ln -sf /user/.ssh/known_hosts "$WEBROOT_HOME/.ssh/known_hosts"
   lando_info "Symlinked users known_hosts"
 fi
+
+# Make sure we set the ownership of the mount and HOME when we start a service
+lando_info "And here. we. go."
+lando_info "Doing the permission sweep."
+perm_sweep $LANDO_WEBROOT_USER $(getent group "$LANDO_HOST_GID" | cut -d: -f1) $WEBROOT_HOME $LANDO_RESET_DIR
+
