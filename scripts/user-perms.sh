@@ -27,6 +27,11 @@ fi
 : ${LANDO_WEBROOT_UID:=$(id -u $LANDO_WEBROOT_USER 2>/dev/null)}
 : ${LANDO_WEBROOT_GID:=$(id -g $LANDO_WEBROOT_GROUP 2>/dev/null)}
 
+if [ "${LANDO_WEBROOT_UID}" = 0 ]; then
+  lando_warn "The webroot user is root, and we cannot usermod a user with a currently running process! This is probably ok though..."
+  exit 0
+fi
+
 # Get the linux flavor
 if [ -f /etc/os-release ]; then
   . /etc/os-release
