@@ -6,6 +6,11 @@ if [ -f /tmp/lando-entrypoint-ran ]; then
   rm /tmp/lando-entrypoint-ran
 fi
 
+LANDO_ALREADY_STARTED=0
+if [ -f /tmp/lando-started ]; then
+  LANDO_ALREADY_STARTED=1
+fi
+
 # Get the lando logger
 . /helpers/log.sh
 
@@ -31,13 +36,8 @@ if [ ! -f "/tmp/lando-started" ]; then
   touch /tmp/lando-started
 fi
 
-# Executable all the helpers
-if [ -d "/helpers" ]; then
-  chmod +x /helpers/* || true
-fi;
-
 # Run user perm setup unless explicitly disabled
-if [ -f "/helpers/user-perms.sh" ] && [ -z ${LANDO_NO_USER_PERMS+x} ]; then
+if [ -f "/helpers/user-perms.sh" ] && [ -z ${LANDO_NO_USER_PERMS+x} ] && [ ${LANDO_ALREADY_STARTED} = 0 ]; then
   /helpers/user-perms.sh
 fi;
 
@@ -61,7 +61,6 @@ if [ -d "/scripts" ] && [ -z ${LANDO_NO_SCRIPTS+x} ]; then
   fi
 
   # Keep this for backwards compat and fallback opts
-  chmod +x /scripts/* || true
   find /scripts/ -type f \( -name "*.sh" -o ! -name "*.*" \) -exec {} \;
 fi;
 
