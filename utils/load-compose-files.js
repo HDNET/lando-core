@@ -7,27 +7,72 @@ const yaml = new Yaml();
 const fs = require('fs');
 const remove = require('./remove');
 
+const inspectImage = async (docker, image) => {
+  const imageInfo = await docker.getImage(image).inspect();
+  const config = _.get(imageInfo, 'Config', {});
+  const containerConfig = _.get(imageInfo, 'ContainerConfig', {});
+  return {
+    entrypoint: config.Entrypoint ?? containerConfig.Entrypoint ?? null,
+    command: config.Cmd ?? containerConfig.Cmd ?? null,
+    working_dir: config.WorkingDir ?? containerConfig.WorkingDir ?? null,
+  };
+};
+
+const resolveServiceCommands = async (composeData, docker, log, engine, composeFilePaths, project) => {
+  if (!docker) return composeData;
+
+  for (const data of composeData) {
+    const services = _.get(data, 'services', {});
+    for (const [, service] of Object.entries(services)) {
+      if (service.entrypoint && service.command && service.working_dir) continue;
+
+      try {
+        const info = await inspectImage(docker, service.image);
+        if (!service.entrypoint) service.entrypoint = info.entrypoint;
+        if (!service.command) service.command = info.command;
+        if (!service.working_dir) service.working_dir = info.working_dir;
+        if (!service.working_dir) service.working_dir = '/';
+      } catch {
+        const serviceNames = _.keys(_.get(data, 'services', {}));
+        const pullable = serviceNames.filter(name => !_.has(data, `services.${name}.build`));
+        const local = serviceNames.filter(name => _.has(data, `services.${name}.build`));
+
+        try {
+          await engine.build({compose: composeFilePaths, project, opts: {pullable, local}});
+          const info = await inspectImage(docker, service.image);
+          if (!service.entrypoint) service.entrypoint = info.entrypoint;
+          if (!service.command) service.command = info.command;
+          if (!service.working_dir) service.working_dir = info.working_dir;
+        } catch {
+          log.error('Failed to build/pull composer docker images, continuing without entrypoint override...');
+        }
+      }
+    }
+  }
+
+  return composeData;
+};
+
 // This just runs `docker compose --project-directory ${dir} config -f ${files} --output ${outputPaths}` to
 // make all paths relative to the lando config root
-module.exports = async (files, dir, landoComposeConfigDir = undefined, outputConfigFunction = undefined) => {
+module.exports = async (files, dir, landoComposeConfigDir, engine, project, envFiles, log) => {
   const composeFilePaths = _(require('./normalize-files')(files, dir)).value();
   if (_.isEmpty(composeFilePaths)) {
     return [];
   }
 
-  if (undefined === outputConfigFunction) {
+  if (!engine) {
     return _(composeFilePaths)
       .map(file => yaml.load(file))
       .value();
   }
 
   const outputFile = path.join(landoComposeConfigDir, 'resolved-compose-config.yml');
-
   fs.mkdirSync(path.dirname(outputFile), {recursive: true});
-  await outputConfigFunction(composeFilePaths, outputFile);
+  await engine.getComposeConfig({compose: composeFilePaths, project, outputFilePath: outputFile, opts: {envFiles}});
   const result = yaml.load(outputFile);
   fs.unlinkSync(outputFile);
   remove(path.dirname(outputFile));
 
-  return [result];
+  return resolveServiceCommands([result], engine.docker, log, engine, composeFilePaths, project);
 };
