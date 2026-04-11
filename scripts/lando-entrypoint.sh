@@ -90,3 +90,5 @@ elif [ ! -z ${LANDO_NEEDS_EXEC+x} ]; then
 else
  "$@" || tail -f /dev/null
 fi;
+
+tail -f /dev/null
