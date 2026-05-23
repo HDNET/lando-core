@@ -157,6 +157,9 @@ module.exports = async (app, lando) => {
   // override default tooling commands if needed
   app.events.on('ready', 1, async () => await require('./hooks/app-override-tooling-defaults')(app, lando));
 
+  // Generate certs for v3 SSL services as needed
+  app.events.on('ready', 2, async () => await require('./hooks/app-generate-v3-certs')(app, lando));
+
   // set tooling compose cache
   app.events.on('ready', async () => await require('./hooks/app-set-compose-cache')(app, lando));
 
@@ -189,9 +192,6 @@ module.exports = async (app, lando) => {
 
   // Check for updates if the update cache is empty
   app.events.on('pre-start', 1, async () => await require('./hooks/app-check-for-updates')(app, lando));
-
-  // Generate certs for v3 SSL services as needed
-  app.events.on('pre-start', 2, async () => await require('./hooks/app-generate-v3-certs')(app, lando));
 
   // If the app already is installed but we can't determine the builtAgainst, then set it to something bogus
   app.events.on('pre-start', async () => await require('./hooks/app-update-built-against-pre')(app, lando));
