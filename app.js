@@ -247,6 +247,9 @@ module.exports = async (app, lando) => {
   // remove tooling cache
   app.events.on('post-uninstall', async () => await require('./hooks/app-purge-recipe-cache')(app, lando));
 
+  // remove proxy certs and config
+  app.events.on('post-uninstall', async () => await require('./hooks/app-purge-proxy-certs-and-config')(app, lando));
+
   // Remove meta cache on destroy
   app.events.on('post-destroy', async () => await require('./hooks/app-purge-metadata-cache')(app, lando));
 
