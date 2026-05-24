@@ -3,6 +3,7 @@
 const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
+const App = require('../lib/app');
 
 /*
  * Paths to /
@@ -41,9 +42,10 @@ const loadCacheFile = file => {
  */
 const appRunner = command => (argv, lando) => {
   const app = lando.getApp(argv._app.root);
+  const service = _.get(app.config, `tooling.${command}.service`, '');
   return lando.events.emit('pre-app-runner', app)
   .then(() => lando.events.emit('pre-command-runner', app))
-  .then(() => app.init().then(() => _.find(app.tasks, {command}).run(argv)));
+  .then(() => app.init({noEngine: '_init' === service}).then(() => _.find(app.tasks, {command}).run(argv)));
 };
 
 /*
@@ -53,6 +55,8 @@ const engineRunner = (config, command) => (argv, lando) => {
   const AsyncEvents = require('./../lib/events');
   // Build a minimal app
   const app = lando.cache.get(path.basename(config.composeCache));
+  app._lando = lando;
+  app._config = lando.config;
   app.config = config;
   app.events = new AsyncEvents(lando.log);
 
@@ -129,7 +133,7 @@ module.exports = (config = {}, argv = {}, tasks = []) => {
 
   // If the tooling command is being called lets assess whether we can get away with engine bootstrap level
   const ids = _(config.tooling).map(task => task.id).filter(_.identity).value();
-  const level = (_.includes(ids, argv._[0])) ? getBsLevel(config, argv._[0]) : 'app';
+  const level = !App.isBootstrapCommand && (_.includes(ids, argv._[0])) ? getBsLevel(config, argv._[0]) : 'app';
 
   // Load all the tasks, remember we need to remove "disabled" tasks (eg non-object tasks) here
   _.forEach(_.get(config, 'tooling', {}), (task, command) => {

@@ -3,7 +3,10 @@
 // Modules
 const _ = require('lodash');
 
-module.exports = async lando => lando.engine.getNetworks().then(networks => {
+module.exports = async lando => {
+  if (lando.cache.get('_.networks.checked')) return;
+  lando.cache.set('_.networks.checked', true);
+  return lando.engine.getNetworks().then(networks => {
   if (_.size(networks) >= lando.config.networkLimit) {
     // Warn user about this action
     lando.log.warn('Lando has detected you are at Docker\'s network limit!');
@@ -37,3 +40,4 @@ module.exports = async lando => lando.engine.getNetworks().then(networks => {
     });
   }
 });
+};

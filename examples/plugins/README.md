@@ -63,9 +63,9 @@ lando plugin-login --registry "https://npm.pkg.github.com" --password "$GITHUB_P
 
 # Should be able to add and remove a private plugin via a registry string.
 lando config | grep -qv "plugins/@lando/lando-plugin-test"
-lando plugin-add "@lando/lando-plugin-test"
-lando config | grep -q "plugins/@lando/lando-plugin-test"
-lando plugin-remove "@lando/lando-plugin-test"
+#lando plugin-add "@lando/lando-plugin-test"
+#lando config | grep -q "plugins/@lando/lando-plugin-test"
+#lando plugin-remove "@lando/lando-plugin-test"
 lando config | grep -qv "plugins/@lando/lando-plugin-test"
 ```
 

@@ -64,7 +64,6 @@ module.exports = async (app, lando) => {
       overrides: {
         tooling: app._coreToolingOverrides,
       },
-
     }, {persist: true});
   };
 
@@ -124,6 +123,9 @@ module.exports = async (app, lando) => {
   // add proxy info as needed
   app.events.on('post-init', async () => await require('./hooks/app-add-proxy-info')(app, lando));
 
+  // Add _init tooling for bootstrap reference
+  app.events.on('pre-bootstrap', async () => await require('./hooks/app-add-init-tooling')(app, lando));
+
   // Collect info so we can inject LANDO_INFO
   // @NOTE: this is not currently the full lando info because a lot of it requires the app to be on
   app.events.on('post-init', 10, async () => await require('./hooks/app-set-lando-info')(app, lando));
@@ -135,17 +137,34 @@ module.exports = async (app, lando) => {
   // Add localhost info to our containers if they are up
   app.events.on('post-init-engine', async () => await require('./hooks/app-find-localhosts')(app, lando));
 
+  // Set LANDO_DOCKER_DATA_ROOT from docker info
+  // @NOTE: post-init-engine is skipped when noEngine is true (eg lando setup) so we dont
+  // try to hit docker when its not installed yet. app-find-localhosts above calls engine.list
+  // which goes through daemon.up() so docker is guaranteed running by this point.
+  app.events.on('post-init-engine', async () => {
+    try {
+      const info = await lando.engine.docker.info();
+      if (!info?.DockerRootDir) {
+        throw new Error();
+      }
+
+      app.env.LANDO_DOCKER_DATA_ROOT = info.DockerRootDir;
+    } catch (e) {
+      app.log.error('could not get docker info for data root');
+    }
+  });
+
   // override default tooling commands if needed
   app.events.on('ready', 1, async () => await require('./hooks/app-override-tooling-defaults')(app, lando));
+
+  // Generate certs for v3 SSL services as needed
+  app.events.on('ready', 2, async () => await require('./hooks/app-generate-v3-certs')(app, lando));
 
   // set tooling compose cache
   app.events.on('ready', async () => await require('./hooks/app-set-compose-cache')(app, lando));
 
   // v4 parts of the app are ready
   app.events.on('ready', 6, async () => await require('./hooks/app-v4-ready')(app, lando));
-
-  // this is a gross hack we need to do to reset the engine because the lando 3 runtime has no idea
-  app.events.on('ready-engine', 1, async () => await require('./hooks/app-reset-orchestrator')(app, lando));
 
   // Discover portforward true info
   app.events.on('ready-engine', async () => await require('./hooks/app-set-portforwards')(app, lando));
@@ -174,9 +193,6 @@ module.exports = async (app, lando) => {
   // Check for updates if the update cache is empty
   app.events.on('pre-start', 1, async () => await require('./hooks/app-check-for-updates')(app, lando));
 
-  // Generate certs for v3 SSL services as needed
-  app.events.on('pre-start', 2, async () => await require('./hooks/app-generate-v3-certs')(app, lando));
-
   // If the app already is installed but we can't determine the builtAgainst, then set it to something bogus
   app.events.on('pre-start', async () => await require('./hooks/app-update-built-against-pre')(app, lando));
 
@@ -199,7 +215,7 @@ module.exports = async (app, lando) => {
   app.events.on('post-start', async () => await require('./hooks/app-add-proxy-info')(app, lando));
 
   // Add update tip if needed
-  app.events.on('post-start', async () => await require('./hooks/app-add-path-info')(app, lando));
+  // app.events.on('post-start', async () => await require('./hooks/app-add-path-info')(app, lando));
 
   // If we don't have a builtAgainst already then we must be spinning up for the first time and its safe to set this
   app.events.on('post-start', async () => await require('./hooks/app-update-built-against-post')(app, lando));
@@ -230,6 +246,9 @@ module.exports = async (app, lando) => {
 
   // remove tooling cache
   app.events.on('post-uninstall', async () => await require('./hooks/app-purge-recipe-cache')(app, lando));
+
+  // remove proxy certs and config
+  app.events.on('post-uninstall', async () => await require('./hooks/app-purge-proxy-certs-and-config')(app, lando));
 
   // Remove meta cache on destroy
   app.events.on('post-destroy', async () => await require('./hooks/app-purge-metadata-cache')(app, lando));

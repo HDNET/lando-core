@@ -15,6 +15,8 @@ const parseUrls = (urls = []) => {
 };
 
 module.exports = async (app, lando) => {
+  if (lando.cache.get(app.composeCache)) return;
+
   const certServices = app.info
     .filter(service => service.hasCerts === true)
     .map(service => ({
