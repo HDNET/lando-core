@@ -3,14 +3,8 @@
 const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
-const url = require('url');
 
-const setDockerHost = (hostname, port = 2376) => url.format({
-  protocol: 'tcp',
-  slashes: true,
-  hostname,
-  port,
-});
+const setDockerHost = (hostname, port = 2376) => `tcp://${hostname}:${port}`;
 
 module.exports = ({engineConfig = {}, env = {}}) => {
   // Set defaults if we have to

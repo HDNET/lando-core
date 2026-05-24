@@ -1,7 +1,6 @@
 'use strict';
 
 const _ = require('lodash');
-const url = require('url');
 
 module.exports = (data, scan = ['80', '443'], secured = ['443'], bindAddress = '127.0.0.1') => {
   return _(_.merge(_.get(data, 'Config.ExposedPorts', []), {'443/tcp': {}}))
@@ -12,11 +11,10 @@ module.exports = (data, scan = ['80', '443'], secured = ['443'], bindAddress = '
   .filter(exposed => _.includes(scan, exposed.port))
   .flatMap(ports => _.map(_.get(data, `NetworkSettings.Ports.${ports.port}/tcp`, []), i => _.merge({}, ports, i)))
   .filter(ports => _.includes([bindAddress, '0.0.0.0'], ports.HostIp))
-  .map(ports => url.format({
-    protocol: ports.protocol,
-    hostname: 'localhost',
-    port: _.includes(scan, ports.port) ? ports.HostPort : '',
-  }))
+  .map(ports => {
+    const port = _.includes(scan, ports.port) ? ports.HostPort : '';
+    return port ? `${ports.protocol}://localhost:${port}` : `${ports.protocol}://localhost`;
+  })
   .thru(urls => ({service: data.Config.Labels['com.docker.compose.service'], urls}))
   .value();
 };

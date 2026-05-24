@@ -5,7 +5,6 @@ const hasher = require('object-hash');
 const merge = require('../utils/merge');
 const path = require('path');
 const parseUrl = require('../utils/parse-proxy-url');
-const url = require('url');
 
 /*
  * Helper to scanPorts
@@ -131,12 +130,10 @@ const normalizeRoutes = (services = {}) => Object.fromEntries(_.map(services, (r
 
     // at this point we should be able to parse the hostname
     // @TODO: do we need to try/catch this?
-    // @NOTE: lets hold off on URL.parse until more people reliable have a node20 ready cli
-    // const {hostname, port, pathname} = URL.parse(route.hostname);
-    const {hostname, port, pathname} = url.parse(route.hostname);
+    const {hostname, port, pathname} = new URL(route.hostname);
 
     // and rebase the whole thing
-    route = merge({}, [defaults, {port: _.isNil(port) ? '80' : port, pathname}, route, {hostname}], ['merge:key', 'replace']);
+    route = merge({}, [defaults, {port: port || '80', pathname}, route, {hostname}], ['merge:key', 'replace']);
 
     // wildcard replacement back
     route.hostname = route.hostname.replace(/__wildcard__/g, '*');
