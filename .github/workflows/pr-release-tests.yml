@@ -19,7 +19,7 @@ jobs:
     with:
       arch: ${{ matrix.arch }}
       filename: lando-${{ matrix.os }}-${{ matrix.arch }}-${{ github.sha }}
-      node-version: "20"
+      node-version: "24"
       os: ${{ matrix.os }}
       version: dev
 
@@ -61,7 +61,7 @@ jobs:
     strategy:
       matrix:
         node-version:
-          - '20'
+          - '24'
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

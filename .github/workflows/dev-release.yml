@@ -25,7 +25,7 @@ jobs:
       arch: ${{ matrix.arch }}
       edge: true
       filename: lando-${{ matrix.os }}-${{ matrix.arch }}-${{ github.sha }}
-      node-version: "20"
+      node-version: "24"
       os: ${{ matrix.os }}
       version: dev
 

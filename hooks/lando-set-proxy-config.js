@@ -2,10 +2,9 @@
 
 const _ = require('lodash');
 const path = require('path');
-const url = require('url');
 
 const ports2Urls = (ports, secure = false, hostname = '127.0.0.1') => _(ports)
-  .map(port => url.format({protocol: (secure) ? 'https' : 'http', hostname, port}))
+  .map(port => `${secure ? 'https' : 'http'}://${hostname}:${port}`)
   .value();
 
 module.exports = async lando => {

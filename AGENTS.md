@@ -6,7 +6,7 @@ Lando is a local development orchestration tool built around Docker, recipes, an
 - Keep this file up to date. If you identify a serious repo-specific gotcha that is likely to trip future agents, update this file in the same change.
 
 ## Commands
-- Use `npm`. Node 20 required.
+- Use `npm`. Node 24 required.
 - Full verification: `npm test`. Focused unit test: `npx mocha --timeout 5000 test/<file>.spec.js`.
 - Integration tests: `npm run test:leia`. **Do not run locally** — they modify the host system and are CI-only.
 - The `.lando.yml` at the project root is solely for docs work (VitePress); it has no relation to app code.
