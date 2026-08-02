@@ -26,6 +26,7 @@ module.exports = async (app, lando) => {
       allServices: app.allServices,
       compose: app.compose,
       containers: app.containers,
+      hostLandoInternal: _.get(lando, 'config.hostLandoInternal.extraHost', null),
       info: _.cloneDeep(app.info).map(service => ({...service, hostname: [], urls: []})),
       name: app.name,
       overrides: {
@@ -54,6 +55,7 @@ module.exports = async (app, lando) => {
       allServices: app.allServices,
       compose: app.compose,
       containers: app.containers,
+      hostLandoInternal: _.get(lando, 'config.hostLandoInternal.extraHost', null),
       info: _.cloneDeep(app.info).map(service => ({...service, hostname: [], urls: []})),
       name: app.name,
       mounts: require('./utils/get-mounts')(_.get(app, 'v4.services', {})),

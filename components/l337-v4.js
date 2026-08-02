@@ -164,7 +164,7 @@ class L337ServiceV4 extends EventEmitter {
     // add in the l337 spec config
     this.addServiceData({
       ...config,
-      extra_hosts: ['host.lando.internal:host-gateway'],
+      extra_hosts: require('../utils/get-host-lando-internal-hosts')(lando),
       ports,
     });
     this.addServiceData({ports});
