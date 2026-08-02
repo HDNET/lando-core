@@ -55,8 +55,8 @@ const resolveServiceCommands = async (composeData, docker, log, engine, composeF
   return composeData;
 };
 
-// This just runs `docker compose --project-directory ${dir} config -f ${files} --output ${outputPaths}` to
-// make all paths relative to the lando config root
+// This just runs `docker compose --project-name ${project} -f ${files} config -o ${outputFile}` to resolve
+// things like relative paths so they still work once we dump this into the lando config root
 module.exports = async (files, dir, landoComposeConfigDir, engine, project, envFiles, log, orchestratorSeperator) => {
   const composeFilePaths = _(require('./normalize-files')(files, dir)).value();
   if (_.isEmpty(composeFilePaths)) {
@@ -71,7 +71,7 @@ module.exports = async (files, dir, landoComposeConfigDir, engine, project, envF
 
   const outputFile = path.join(landoComposeConfigDir, 'resolved-compose-config.yml');
   fs.mkdirSync(path.dirname(outputFile), {recursive: true});
-  await engine.getComposeConfig({compose: composeFilePaths, project, outputFilePath: outputFile, opts: {envFiles}});
+  await engine.compose('config', {compose: composeFilePaths, project, opts: {envFiles, cmd: ['-o', outputFile]}});
   const result = yaml.load(outputFile);
   fs.unlinkSync(outputFile);
   remove(path.dirname(outputFile));
