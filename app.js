@@ -29,6 +29,7 @@ module.exports = async (app, lando) => {
       hostLandoInternal: _.get(lando, 'config.hostLandoInternal.extraHost', null),
       info: _.cloneDeep(app.info).map(service => ({...service, hostname: [], urls: []})),
       name: app.name,
+      coreTooling: app._coreDbTooling,
       overrides: {
         tooling: app._coreToolingOverrides,
       },
@@ -63,6 +64,7 @@ module.exports = async (app, lando) => {
       project: app.project,
       root: app.root,
       sapis: require('./utils/get-service-apis')(app),
+      coreTooling: app._coreDbTooling,
       overrides: {
         tooling: app._coreToolingOverrides,
       },
@@ -100,6 +102,9 @@ module.exports = async (app, lando) => {
 
   // add in hostname
   app.events.on('post-init', 1, async () => await require('./hooks/app-add-hostnames')(app, lando));
+
+  // add default database tooling eg db-import, db-export, note that this needs to run before app-add-tooling
+  app.events.on('post-init', 2, async () => await require('./hooks/app-add-db-tooling')(app, lando));
 
   // run v3 build steps
   app.events.on('post-init', async () => await require('./hooks/app-run-v3-build-steps')(app, lando));

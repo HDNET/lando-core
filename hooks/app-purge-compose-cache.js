@@ -11,6 +11,9 @@ module.exports = async (app, lando) => {
   // reset tooling overrides
   app._coreToolingOverrides = {};
 
+  // reset core provided database tooling
+  app._coreDbTooling = {};
+
   // remove compose cache danglerz, note that the combined file is generated and not a dangler
   const combined = require('../utils/dump-compose-config').combinedFile;
   fs.readdirSync(app._dir)
