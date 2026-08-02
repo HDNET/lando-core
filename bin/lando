@@ -141,6 +141,26 @@ if (appConfig.recipe && !fs.existsSync(appConfig.recipeCache)) {
   if (fs.existsSync(process.landoAppCacheFile)) fs.unlinkSync(process.landoAppCacheFile);
 }
 
+// host.lando.internal is baked into the generated compose files so if it has moved on us eg the wsl2 vm restarted and
+// got a new gateway then what we have cached is stale and needs to be regenerated
+if (fs.existsSync(process.landoAppCacheFile ?? '')) {
+  try {
+    const {extraHost} = require(`${COREBASE}/utils/get-host-lando-internal`)({
+      cacheDir: path.join(config.userConfRoot, 'cache'),
+      ideLocation: config.xdebugIdeLocation,
+    });
+    const cached = JSON.parse(fs.readFileSync(process.landoAppCacheFile, {encoding: 'utf-8'}));
+
+    if (typeof cached.hostLandoInternal === 'string' && cached.hostLandoInternal !== extraHost) {
+      debug('host.lando.internal moved from %o to %o, purging compose cache', cached.hostLandoInternal, extraHost);
+      fs.unlinkSync(process.landoAppCacheFile);
+      if (fs.existsSync(process.landoTaskCacheFile)) fs.unlinkSync(process.landoTaskCacheFile);
+    }
+  } catch (error) {
+    debug('could not check whether host.lando.internal is still valid %o', error.message);
+  }
+}
+
 // determine bs level
 const bsLevel = !_.isEmpty(appConfig) && !fs.existsSync(process.landoAppCacheFile) ? 'APP' : 'TASKS';
 

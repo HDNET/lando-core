@@ -202,7 +202,7 @@ module.exports = {
         services: _.set({}, name, {
           entrypoint,
           environment,
-          extra_hosts: ['host.lando.internal:host-gateway'],
+          extra_hosts: require('../utils/get-host-lando-internal-hosts')({config: _.get(_app, '_config', {})}),
           labels,
           logging,
           ports,
