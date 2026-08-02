@@ -126,6 +126,27 @@ module.exports = (config = {}, argv = {}, tasks = []) => {
     }
   }
 
+  // Load the compose cache if we have one, note that we need to do this _before_ we build our tooling tasks
+  // below so any core provided tooling eg database tooling is included
+  let composeCache = {};
+  if (fs.existsSync(config.composeCache)) {
+    try {
+      composeCache = JSON.parse(fs.readFileSync(config.composeCache, {encoding: 'utf-8'}));
+    } catch (e) {
+      throw new Error(`There was a problem with parsing ${config.composeCache}. Ensure it is valid JSON! ${e}`);
+    }
+
+    // add additional items
+    config.allServices = composeCache.allServices ?? [];
+    config.info = composeCache.info ?? [];
+    config.primary = composeCache.primary ?? 'appserver';
+    config.sapis = composeCache.sapis ?? {};
+
+    // mix in tooling core has added on our behalf, note that user and recipe tooling always wins
+    const additions = require('./get-core-tooling-additions')(composeCache.coreTooling ?? {}, config.tooling ?? {});
+    config.tooling = _.merge({}, additions, config.tooling ?? {});
+  }
+
   // lets add ids to help match commands with args?
   _.forEach(config.tooling, (task, command) => {
     if (_.isObject(task) && typeof command === 'string') task.id = task.id || command.split(' ')[0];
@@ -156,23 +177,8 @@ module.exports = (config = {}, argv = {}, tasks = []) => {
   // get core tasks
   const coreTasks = _(loadCacheFile(process.landoTaskCacheFile)).map(t => ([t.command, t])).fromPairs().value();
 
-  // mix in any relevant compose cache things
-  if (fs.existsSync(config.composeCache)) {
-    try {
-      const composeCache = JSON.parse(fs.readFileSync(config.composeCache, {encoding: 'utf-8'}));
-
-      // merge in additional tooling;
-      Object.assign(coreTasks, composeCache?.overrides?.tooling ?? {});
-
-      // add additional items
-      config.allServices = composeCache.allServices ?? [];
-      config.info = composeCache.info ?? [];
-      config.primary = composeCache.primary ?? 'appserver';
-      config.sapis = composeCache.sapis ?? {};
-    } catch (e) {
-      throw new Error(`There was a problem with parsing ${config.composeCache}. Ensure it is valid JSON! ${e}`);
-    }
-  }
+  // merge in additional tooling;
+  Object.assign(coreTasks, composeCache?.overrides?.tooling ?? {});
 
   // and combine
   return tasks.concat(_.map(coreTasks, task => task));
