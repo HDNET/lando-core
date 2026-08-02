@@ -339,10 +339,12 @@ module.exports = async (app, lando) => {
     // Add to our app
     // @NOTE: we can't add this in the normal way since this happens AFTER our app
     // has been initialized
-    .then(result => {
+    .then(async result => {
       app.add(new app.ComposeService('proxy', {}, ...result));
       app.compose = lando.utils.dumpComposeData(app.composeData, app._dir);
       app.log.debug('app now has proxy compose files', app.compose);
+      // redump the combined file so it also has the proxy stuff
+      await lando.utils.dumpComposeConfig(app.engine, app.compose, app.project, app._dir, app.log);
     })
 
     // Warn the user if this fails

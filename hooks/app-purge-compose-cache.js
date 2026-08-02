@@ -11,8 +11,10 @@ module.exports = async (app, lando) => {
   // reset tooling overrides
   app._coreToolingOverrides = {};
 
-  // remove compose cache danglerz
+  // remove compose cache danglerz, note that the combined file is generated and not a dangler
+  const combined = require('../utils/dump-compose-config').combinedFile;
   fs.readdirSync(app._dir)
+    .filter(dangler => dangler !== combined)
     .map(dangler => path.join(app._dir, dangler))
     .filter(dangler => !app.compose.includes(dangler))
     .map(dangler => {
