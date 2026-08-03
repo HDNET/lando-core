@@ -166,6 +166,11 @@ module.exports = (config = {}, argv = {}, tasks = []) => {
         describe: _.get(task, 'description', `Runs ${command} commands`),
         examples: _.get(task, 'examples', []),
         level,
+        // tooling commands pass their args straight through so any global options that show up after the
+        // command belong to the command and not to us
+        passthrough: true,
+        // dynamic services resolve their service from an answer eg ":host" so we need to keep that key around
+        dynamic: _.startsWith(_.get(task, 'service', ''), ':') ? _.trimStart(task.service, ':') : undefined,
         options: _.get(task, 'options', {}),
         positionals: _.get(task, 'positionals', {}),
         usage: _.get(task, 'usage', command),

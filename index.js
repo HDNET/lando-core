@@ -80,7 +80,7 @@ module.exports = async lando => {
   // work out what host.lando.internal needs to resolve to, this is mostly a wsl2 concern eg the ide is over on
   // windows but the containers are in wsl2 so "host-gateway" only ever gets us as far as the linux side
   const hostLandoInternal = require('./utils/get-host-lando-internal')({
-    cacheDir: path.join(lando.config.userConfRoot, 'cache'),
+    cache: lando.cache,
     ideLocation: lando.config.xdebugIdeLocation,
   });
 
