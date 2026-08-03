@@ -52,6 +52,8 @@ if (process.env.LANDO_DEBUG) {
 // }
 
 // and finally prefer --debug
+// @NOTE: --debug is a boolean flag so only an explicit "--debug=<scope>" sets the scope. without this
+// "lando --debug start" would enable the "start" namespace and print nothing at all
 if (argv.hasOption('--debug')) {
   require('debug').enable(argv.getOption('--debug', {defaultValue: 'lando*'}));
 }
@@ -68,7 +70,7 @@ debug('starting %o version %o runtime selector...', id, pjson.version);
 
 // allow envvars to override a few core things
 // @NOTE: we've kept these around for backwards compatibility, you probably shouldnt use them though
-const LOGLEVELCONSOLE = process.env.LANDO_CORE_LOGLEVELCONSOLE || debug.enabled ? 4 : undefined;
+const LOGLEVELCONSOLE = process.env.LANDO_CORE_LOGLEVELCONSOLE || (debug.enabled ? 4 : undefined);
 const ENVPREFIX = process.env.LANDO_CORE_ENVPREFIX;
 const USERCONFROOT = process.env.LANDO_CORE_USERCONFROOT;
 const RUNTIME = process.env.LANDO_CORE_RUNTIME;
