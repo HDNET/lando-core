@@ -20,11 +20,17 @@ const getDynamicKeys = (answer, answers = {}) => _(answers)
  * Set SERVICE from answers and strip out that noise from the rest of
  * stuff, check answers/argv for --service or -s, validate and then remove
  */
-const handleDynamic = (config, options, answers = {}, sapis = {}) => {
+const handleDynamic = (config, argv, answers = {}, sapis = {}, name = '') => {
   if (_.startsWith(config.service, ':')) {
     const answer = answers[config.service.split(':')[1]];
-    // Remove dynamic service option from argv
-    _.remove(process.argv, arg => _.includes(getDynamicKeys(answer, answers).concat(answer), arg));
+    const noise = getDynamicKeys(answer, answers).concat(answer);
+    // Remove dynamic service option from argv, note that we only consider things _after_ the command itself
+    // because the rest of the pipeline does the same. Without this a command whose name happens to match the
+    // service it resolves to eg "lando db" on a service called "db" would strip out its own command name.
+    const start = argv.findIndex(value => value === name.split(' ')[0]);
+    for (let i = argv.length - 1; i > start; i--) {
+      if (_.includes(noise, argv[i])) argv.splice(i, 1);
+    }
     // get the service
     const service = answers[config.service.split(':')[1]];
     // Return updated config
@@ -41,9 +47,9 @@ const handleDynamic = (config, options, answers = {}, sapis = {}) => {
  * the first three assuming they are [node, lando.js, options.name]'
  * Check to see if we have global lando opts and remove them if we do
  */
-const handleOpts = (config, argopts = []) => {
+const handleOpts = (config, name, argv, argopts = []) => {
   // Append any user specificed opts
-  argopts = argopts.concat(process.argv.slice(3));
+  argopts = argopts.concat(argv.slice(argv.findIndex(value => value === name.split(' ')[0]) + 1));
   // If we have no args then just return right away
   if (_.isEmpty(argopts)) return config;
   // Return
@@ -74,13 +80,13 @@ const parseCommand = (cmd, service, sapis) => {
 };
 
 // adds required methods to ensure the lando v3 debugger can be injected into v4 things
-module.exports = (cmd, service, options = {}, answers = {}, sapis = {}) => _(cmd)
+module.exports = (cmd, service, name, options = {}, answers = {}, sapis = {}) => _(cmd)
   // Put into an object so we can handle "multi-service" tooling
   .map(cmd => parseCommand(cmd, service, sapis))
   // Handle dynamic services
-  .map(config => handleDynamic(config, options, answers, sapis))
+  .map(config => handleDynamic(config, answers._eventArgs ?? process.argv, answers, sapis, name))
   // Add in any argv extras if they've been passed in
-  .map(config => handleOpts(config, handlePassthruOpts(options, answers)))
+  .map(config => handleOpts(config, name, answers._eventArgs ?? process.argv, handlePassthruOpts(options, answers)))
   // Wrap the command in /bin/sh if that makes sense
   .map(config => ({...config, command: require('./shell-escape')(config.command, true, config.args, config.sapi)}))
   // Add any args to the command and compact to remove undefined

@@ -59,6 +59,47 @@ You can also use the environment variable `LANDO_HOST_IP`.
 lando exec my-service -- ping "\$LANDO_HOST_IP" -c 3
 ```
 
+### WSL2 and where your IDE lives
+
+On most platforms `host.lando.internal` just points at the machine Lando is running on and that is the end of it. WSL2 is the exception because there are _two_ candidate hosts: the Linux distro your containers are in, and the Windows side.
+
+This matters most for step debugging. If your containers run on a `docker-ce` you installed *inside* WSL2 but PhpStorm or VS Code is listening on Windows, then the Linux side is the wrong target and Xdebug will never connect.
+
+Lando works this out for you at start time:
+
+| Situation | `host.lando.internal` resolves to |
+| :-- | :-- |
+| Not WSL2 | the Docker `host-gateway` |
+| WSL2 + Docker Desktop | the Docker `host-gateway`, Docker Desktop proxies it through to Windows |
+| WSL2 + `docker-ce`, `nat` mode (the default) | the WSL2 default gateway, which is the Windows `vEthernet (WSL)` adapter |
+| WSL2 + `docker-ce`, `mirrored` or `bridged` mode | the Windows IP on its best default route |
+| WSL2 + `docker-ce`, `virtioproxy` mode | the Windows `vEthernet (WSL)` Hyper-V switch |
+| WSL2 with `networkingMode=none` | nothing, there is no network path to Windows |
+
+If the autodetection gets it wrong you can pin it with `xdebugIdeLocation` in [Lando's global config](./global.html):
+
+```yaml
+# ~/.lando/config.yml
+
+# "auto"      autodetect, the default
+# "wsl2"      your IDE runs inside WSL2, use normal Linux behavior
+# "container" your IDE listens inside the container itself
+# an IP       use this address verbatim
+xdebugIdeLocation: wsl2
+```
+
+You can check what Lando decided and why with:
+
+```sh
+lando config | grep -A1 hostLandoInternal
+```
+
+::: tip Xdebug still not connecting?
+Windows Defender blocks inbound connections on the `vEthernet (WSL)` network by default, so port `9003` needs an exception even once `host.lando.internal` is correct. PhpStorm on Windows also listens on IPv6 first, add `-Djava.net.preferIPv4Stack=true` under **Help → Edit Custom VM Options**.
+
+For `mirrored` mode you additionally need `hostAddressLoopback=true` under `[experimental]` in your Windows `.wslconfig`.
+:::
+
 ## Network Limits
 
 By default Docker has a limit of 32 networks. If you're running a large number of sites, you'll see a message `Lando has detected you are at Docker's network limit`, after which Lando will attempt to clean up unused networks to put you below the network limit.

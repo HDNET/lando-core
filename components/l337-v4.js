@@ -90,7 +90,7 @@ class L337ServiceV4 extends EventEmitter {
       merge(this.#app.info.find(service => service.service === this.id) ?? {}, data);
     }
     this.emit('state', this.#data.info);
-    this.#app.v4.updateComposeCache();
+    if (this.#app.initialized) this.#app.v4.updateComposeCache();
   }
 
   get info() {
@@ -164,7 +164,7 @@ class L337ServiceV4 extends EventEmitter {
     // add in the l337 spec config
     this.addServiceData({
       ...config,
-      extra_hosts: ['host.lando.internal:host-gateway'],
+      extra_hosts: require('../utils/get-host-lando-internal-hosts')(lando),
       ports,
     });
     this.addServiceData({ports});
@@ -253,7 +253,7 @@ class L337ServiceV4 extends EventEmitter {
     this.#app.compose = require('../utils/dump-compose-data')(this.#app.composeData, this.#app._dir);
 
     // update and log
-    this.#app.v4.updateComposeCache();
+    if (this.#app.initialized) this.#app.v4.updateComposeCache();
   }
 
   // adds files/dirs to the build context

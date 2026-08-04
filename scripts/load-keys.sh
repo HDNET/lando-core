@@ -22,7 +22,6 @@ fi
 
 # Set defaults
 : ${LANDO_WEBROOT_USER:='www-data'}
-: ${LANDO_WEBROOT_GROUP:='www-data'}
 : ${LANDO_HOST_USER:=$LANDO_WEBROOT_USER}
 : ${LANDO_LOAD_KEYS:='true'}
 GROUP=$(getent group "$LANDO_HOST_GID" | cut -d: -f1)
@@ -86,9 +85,11 @@ lando_info "Found keys ${SSH_CANDIDATES[*]}"
 
 # Go through and validate our candidates
 for SSH_CANDIDATE in "${SSH_CANDIDATES[@]}"; do
-  lando_debug "Ensuring permissions and ownership of $SSH_CANDIDATE..."
-  chown -R $LANDO_WEBROOT_USER:$GROUP "$SSH_CANDIDATE"
-  chmod 600 "$SSH_CANDIDATE"
+  if [ ${LANDO_WEBROOT_USER} != "root" ]; then
+    lando_debug "Ensuring permissions and ownership of $SSH_CANDIDATE..."
+    chown -R $LANDO_WEBROOT_USER:$GROUP "$SSH_CANDIDATE"
+    chmod 600 "$SSH_CANDIDATE"
+  fi
   lando_debug "Checking whether $SSH_CANDIDATE is a private key..."
   if grep -l "PRIVATE KEY" "$SSH_CANDIDATE" &> /dev/null; then
     if command -v ssh-keygen >/dev/null 2>&1; then

@@ -2,6 +2,15 @@
 
 set -e
 
+if [ -f /tmp/lando-entrypoint-ran ]; then
+  rm /tmp/lando-entrypoint-ran
+fi
+
+LANDO_ALREADY_STARTED=0
+if [ -f /tmp/lando-started ]; then
+  LANDO_ALREADY_STARTED=1
+fi
+
 # Get the lando logger
 . /helpers/log.sh
 
@@ -27,13 +36,8 @@ if [ ! -f "/tmp/lando-started" ]; then
   touch /tmp/lando-started
 fi
 
-# Executable all the helpers
-if [ -d "/helpers" ]; then
-  chmod +x /helpers/* || true
-fi;
-
 # Run user perm setup unless explicitly disabled
-if [ -f "/helpers/user-perms.sh" ] && [ -z ${LANDO_NO_USER_PERMS+x} ]; then
+if [ -f "/helpers/user-perms.sh" ] && [ -z ${LANDO_NO_USER_PERMS+x} ] && [ ${LANDO_ALREADY_STARTED} = 0 ]; then
   /helpers/user-perms.sh
 fi;
 
@@ -57,8 +61,7 @@ if [ -d "/scripts" ] && [ -z ${LANDO_NO_SCRIPTS+x} ]; then
   fi
 
   # Keep this for backwards compat and fallback opts
-  chmod +x /scripts/* || true
-  find /scripts/ -type f -name "*.sh" -exec {} \;
+  find /scripts/ -type f \( -name "*.sh" -o ! -name "*.*" \) -exec {} \;
 fi;
 
 # Run any bash scripts that we've loaded into the mix for autorun unless we've
@@ -73,6 +76,8 @@ fi
 # @TODO: We should def figure out whether we can get away with running everything through exec at some point
 lando_info "Lando handing off to: $@"
 
+touch /tmp/lando-entrypoint-ran
+
 # Try to DROP DOWN to another user if we can
 if [ ! -z ${LANDO_DROP_USER+x} ]; then
   lando_debug "Running command as ${LANDO_DROP_USER}..."
@@ -85,3 +90,5 @@ elif [ ! -z ${LANDO_NEEDS_EXEC+x} ]; then
 else
  "$@" || tail -f /dev/null
 fi;
+
+tail -f /dev/null

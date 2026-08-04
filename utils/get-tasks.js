@@ -3,6 +3,7 @@
 const _ = require('lodash');
 const fs = require('fs');
 const path = require('path');
+const App = require('../lib/app');
 
 /*
  * Paths to /
@@ -41,9 +42,10 @@ const loadCacheFile = file => {
  */
 const appRunner = command => (argv, lando) => {
   const app = lando.getApp(argv._app.root);
+  const service = _.get(app.config, `tooling.${command}.service`, '');
   return lando.events.emit('pre-app-runner', app)
   .then(() => lando.events.emit('pre-command-runner', app))
-  .then(() => app.init().then(() => _.find(app.tasks, {command}).run(argv)));
+  .then(() => app.init({noEngine: '_init' === service}).then(() => _.find(app.tasks, {command}).run(argv)));
 };
 
 /*
@@ -53,6 +55,8 @@ const engineRunner = (config, command) => (argv, lando) => {
   const AsyncEvents = require('./../lib/events');
   // Build a minimal app
   const app = lando.cache.get(path.basename(config.composeCache));
+  app._lando = lando;
+  app._config = lando.config;
   app.config = config;
   app.events = new AsyncEvents(lando.log);
 
@@ -122,6 +126,27 @@ module.exports = (config = {}, argv = {}, tasks = []) => {
     }
   }
 
+  // Load the compose cache if we have one, note that we need to do this _before_ we build our tooling tasks
+  // below so any core provided tooling eg database tooling is included
+  let composeCache = {};
+  if (fs.existsSync(config.composeCache)) {
+    try {
+      composeCache = JSON.parse(fs.readFileSync(config.composeCache, {encoding: 'utf-8'}));
+    } catch (e) {
+      throw new Error(`There was a problem with parsing ${config.composeCache}. Ensure it is valid JSON! ${e}`);
+    }
+
+    // add additional items
+    config.allServices = composeCache.allServices ?? [];
+    config.info = composeCache.info ?? [];
+    config.primary = composeCache.primary ?? 'appserver';
+    config.sapis = composeCache.sapis ?? {};
+
+    // mix in tooling core has added on our behalf, note that user and recipe tooling always wins
+    const additions = require('./get-core-tooling-additions')(composeCache.coreTooling ?? {}, config.tooling ?? {});
+    config.tooling = _.merge({}, additions, config.tooling ?? {});
+  }
+
   // lets add ids to help match commands with args?
   _.forEach(config.tooling, (task, command) => {
     if (_.isObject(task) && typeof command === 'string') task.id = task.id || command.split(' ')[0];
@@ -129,7 +154,7 @@ module.exports = (config = {}, argv = {}, tasks = []) => {
 
   // If the tooling command is being called lets assess whether we can get away with engine bootstrap level
   const ids = _(config.tooling).map(task => task.id).filter(_.identity).value();
-  const level = (_.includes(ids, argv._[0])) ? getBsLevel(config, argv._[0]) : 'app';
+  const level = !App.isBootstrapCommand && (_.includes(ids, argv._[0])) ? getBsLevel(config, argv._[0]) : 'app';
 
   // Load all the tasks, remember we need to remove "disabled" tasks (eg non-object tasks) here
   _.forEach(_.get(config, 'tooling', {}), (task, command) => {
@@ -141,6 +166,11 @@ module.exports = (config = {}, argv = {}, tasks = []) => {
         describe: _.get(task, 'description', `Runs ${command} commands`),
         examples: _.get(task, 'examples', []),
         level,
+        // tooling commands pass their args straight through so any global options that show up after the
+        // command belong to the command and not to us
+        passthrough: true,
+        // dynamic services resolve their service from an answer eg ":host" so we need to keep that key around
+        dynamic: _.startsWith(_.get(task, 'service', ''), ':') ? _.trimStart(task.service, ':') : undefined,
         options: _.get(task, 'options', {}),
         positionals: _.get(task, 'positionals', {}),
         usage: _.get(task, 'usage', command),
@@ -152,23 +182,8 @@ module.exports = (config = {}, argv = {}, tasks = []) => {
   // get core tasks
   const coreTasks = _(loadCacheFile(process.landoTaskCacheFile)).map(t => ([t.command, t])).fromPairs().value();
 
-  // mix in any relevant compose cache things
-  if (fs.existsSync(config.composeCache)) {
-    try {
-      const composeCache = JSON.parse(fs.readFileSync(config.composeCache, {encoding: 'utf-8'}));
-
-      // merge in additional tooling;
-      Object.assign(coreTasks, composeCache?.overrides?.tooling ?? {});
-
-      // add additional items
-      config.allServices = composeCache.allServices ?? [];
-      config.info = composeCache.info ?? [];
-      config.primary = composeCache.primary ?? 'appserver';
-      config.sapis = composeCache.sapis ?? {};
-    } catch (e) {
-      throw new Error(`There was a problem with parsing ${config.composeCache}. Ensure it is valid JSON! ${e}`);
-    }
-  }
+  // merge in additional tooling;
+  Object.assign(coreTasks, composeCache?.overrides?.tooling ?? {});
 
   // and combine
   return tasks.concat(_.map(coreTasks, task => task));
