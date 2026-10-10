@@ -436,7 +436,7 @@ module.exports = {
       // add it all 2getha
       this.addLandoServiceData({
         environment,
-        extra_hosts: ['host.lando.internal:host-gateway'],
+        extra_hosts: require('../utils/get-host-lando-internal-hosts')(lando),
         labels,
         logging: {driver: 'json-file', options: {'max-file': '3', 'max-size': '10m'}},
         networks: {[this.network]: {aliases: this.hostnames}},

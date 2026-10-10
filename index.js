@@ -24,7 +24,7 @@ const defaults = {
       '/entrypoint.sh',
       '--log.level=DEBUG',
       '--api.insecure=true',
-      '--api.dashboard=false',
+      '--api.dashboard=true',
       '--providers.docker=true',
       '--entrypoints.https.address=:443',
       '--entrypoints.http.address=:80',
@@ -40,6 +40,9 @@ const defaults = {
     proxyHttpFallbacks: ['8000', '8080', '8888', '8008'],
     proxyHttpsFallbacks: ['444', '4433', '4444', '4443'],
     proxyPassThru: true,
+    // where the users ide/debugger is listening, this governs what host.lando.internal points at
+    // one of: "auto" (default), "wsl2", "container" or an explicit ip address
+    xdebugIdeLocation: 'auto',
   },
 };
 
@@ -73,6 +76,13 @@ module.exports = async lando => {
   const caKey = path.join(caDir, `${caName}.key`);
 
   const platform = lando.config.os.landoPlatform;
+
+  // work out what host.lando.internal needs to resolve to, this is mostly a wsl2 concern eg the ide is over on
+  // windows but the containers are in wsl2 so "host-gateway" only ever gets us as far as the linux side
+  const hostLandoInternal = require('./utils/get-host-lando-internal')({
+    cache: lando.cache,
+    ideLocation: lando.config.xdebugIdeLocation,
+  });
 
   // ensure some dirs exist before we start
   _.forEach([binDir, caDir, sshDir], dir => fs.mkdirSync(dir, {recursive: true}));
@@ -143,6 +153,8 @@ module.exports = async lando => {
   // regen task cache
   lando.events.on('before-end', 9999, async () => await require('./hooks/lando-generate-tasks-cache')(lando));
 
+  lando.events.on('post-bootstrap-config', async () => await require('./hooks/plugin-auth-from-npmrc')(lando));
+
   // return some default things
   return _.merge({}, defaults, uc(), {config: {
     appEnv: {
@@ -163,6 +175,7 @@ module.exports = async lando => {
     caCert,
     caDomain,
     caKey,
+    hostLandoInternal,
     maxKeyWarning: 10,
     networkBridge: 'lando_bridge_network',
     networkLimit: 32,

@@ -206,6 +206,9 @@ function cliBar() {
       collapsed: false,
       items: [
         {text: 'lando config', link: '/cli/config'},
+        {text: 'lando db <span class="VPBadge success" vertical="middle"><small>NEW!</small></span>', link: '/cli/db'},
+        {text: 'lando db-export <span class="VPBadge success" vertical="middle"><small>NEW!</small></span>', link: '/cli/db-export'},
+        {text: 'lando db-import <span class="VPBadge success" vertical="middle"><small>NEW!</small></span>', link: '/cli/db-import'},
         {text: 'lando destroy', link: '/cli/destroy'},
         {text: 'lando exec <span class="VPBadge success" vertical="middle"><small>NEW!</small></span>', link: '/cli/exec'},
         {text: 'lando info', link: '/cli/info'},
